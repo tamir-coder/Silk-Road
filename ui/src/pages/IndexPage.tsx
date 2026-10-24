@@ -12,6 +12,9 @@ import { REACT_APP_API_URL } from "erxes-ui";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import manifest from "../../../erxes.json" with { type: "json" };
+import { ENGLISH_LEARNING_CONTENT } from "../englishLearningContent";
+import { translate, useLanguage, type Language } from "../i18n";
+import { LanguageSelector } from "../modules/LanguageSelector";
 import {
   ADD_STUDY_FILE_MUTATION,
   CREATE_ROADMAP_FROM_STUDY_FILE_MUTATION,
@@ -29,13 +32,30 @@ const isTextNote = (file: File) => /\.(txt|md|csv)$/i.test(file.name);
 
 type StudentRoadmap = SilkRoadMyRoadmapsQuery["silkRoadMyRoadmaps"][number];
 
-const fileSizeLabel = (size: number) =>
+const fileSizeLabel = (size: number, language: Language) =>
   size >= 1024 * 1024
-    ? `${(size / 1024 / 1024).toFixed(1)} MB`
-    : `${Math.max(1, Math.round(size / 1024))} KB`;
+    ? `${(size / 1024 / 1024).toFixed(1)} ${translate(language, "file_mb")}`
+    : `${Math.max(1, Math.round(size / 1024))} ${translate(language, "file_kb")}`;
 
-const errorMessage = (caught: unknown, fallback: string) =>
-  caught instanceof Error ? caught.message : fallback;
+const errorMessage = (caught: unknown, fallback: string, language: Language) => {
+  if (!(caught instanceof Error)) {
+    return fallback;
+  }
+
+  if (/network|fetch|connection refused/i.test(caught.message)) {
+    return translate(language, "error_network");
+  }
+
+  if (/unauthorized|unauthenticated|sign in/i.test(caught.message)) {
+    return translate(language, "error_auth");
+  }
+
+  if (/forbidden|permission/i.test(caught.message)) {
+    return translate(language, "error_forbidden");
+  }
+
+  return language === "mn" && /[\u0400-\u04ff]/.test(caught.message) ? caught.message : fallback;
+};
 
 const resolveFileUrl = (uploadedValue: string) => {
   if (/^https?:\/\//i.test(uploadedValue) || uploadedValue.startsWith("/")) {
@@ -45,47 +65,56 @@ const resolveFileUrl = (uploadedValue: string) => {
   return `${REACT_APP_API_URL}/read-file?key=${encodeURIComponent(uploadedValue)}`;
 };
 
-const simulationLinks = (subjectName: string, stepTitle: string) => {
+const simulationLinks = (subjectName: string, stepTitle: string, language: Language) => {
   const topic = encodeURIComponent(`${subjectName} ${stepTitle}`);
   const links = [
     {
-      label: "Find an interactive PhET simulation",
+      label: translate(language, "phet"),
       url: `https://phet.colorado.edu/en/simulations/filter?locale=en&query=${topic}`,
     },
   ];
 
-  if (/math|physics|geometry|algebra|graph/i.test(subjectName)) {
-    links.push({ label: "Explore it in GeoGebra", url: "https://www.geogebra.org/calculator" });
+  if (/math|physics|geometry|algebra|graph|математ|физик|геометр|алгебр|граф/i.test(subjectName)) {
+    links.push({
+      label: translate(language, "geogebra"),
+      url: "https://www.geogebra.org/calculator",
+    });
   }
 
   return links;
 };
 
-const PageTitle = () => (
-  <div className="silkroad:flex silkroad:items-center silkroad:gap-3">
-    <Breadcrumb>
-      <Breadcrumb.List className="silkroad:gap-1">
-        <Breadcrumb.Item>
-          <Button variant="ghost" asChild>
-            <Link to={`/${path}`}>
-              <IconBook />
-              {manifest.title}
-            </Link>
-          </Button>
-        </Breadcrumb.Item>
-      </Breadcrumb.List>
-    </Breadcrumb>
-    <Separator.Inline />
-    <Button variant="outline" size="sm" asChild>
-      <Link to={`/${path}/settings`}>
-        <IconSettings />
-        Settings
-      </Link>
-    </Button>
-  </div>
-);
+const PageTitle = () => {
+  const { t } = useLanguage();
+
+  return (
+    <div className="silkroad:flex silkroad:items-center silkroad:gap-3">
+      <Breadcrumb>
+        <Breadcrumb.List className="silkroad:gap-1">
+          <Breadcrumb.Item>
+            <Button variant="ghost" asChild>
+              <Link to={`/${path}`}>
+                <IconBook />
+                {manifest.title}
+              </Link>
+            </Button>
+          </Breadcrumb.Item>
+        </Breadcrumb.List>
+      </Breadcrumb>
+      <Separator.Inline />
+      <Button variant="outline" size="sm" asChild>
+        <Link to={`/${path}/settings`}>
+          <IconSettings />
+          {t("settings")}
+        </Link>
+      </Button>
+      <LanguageSelector />
+    </div>
+  );
+};
 
 const StudyMaterials = ({ roadmap }: { roadmap: StudentRoadmap }) => {
+  const { language, t } = useLanguage();
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -98,7 +127,7 @@ const StudyMaterials = ({ roadmap }: { roadmap: StudentRoadmap }) => {
 
   const upload = async (file: File) => {
     if (file.size === 0 || file.size > MAX_FILE_SIZE) {
-      setUploadError("Choose a non-empty file smaller than 20 MB.");
+      setUploadError(t("error_upload_size"));
       return;
     }
 
@@ -107,9 +136,8 @@ const StudyMaterials = ({ roadmap }: { roadmap: StudentRoadmap }) => {
     try {
       const content = isTextNote(file) ? await file.text() : null;
       if (content !== null && (content.trim().length < 20 || content.length > MAX_NOTES_LENGTH)) {
-        throw new Error(
-          "Text notes need at least 20 characters and must be under 30,000 characters.",
-        );
+        setUploadError(t("error_notes_length"));
+        return;
       }
       const body = new FormData();
       body.append("file", file);
@@ -120,7 +148,7 @@ const StudyMaterials = ({ roadmap }: { roadmap: StudentRoadmap }) => {
       });
       const url = (await response.text()).trim();
       if (!response.ok || !url) {
-        throw new Error(url || "The file upload failed. Please try again.");
+        throw new Error(url || t("error_upload"));
       }
 
       try {
@@ -139,11 +167,13 @@ const StudyMaterials = ({ roadmap }: { roadmap: StudentRoadmap }) => {
         }
       } catch (caught) {
         throw new Error(
-          `The file uploaded, but could not be attached to this path: ${errorMessage(caught, "please try again")}`,
+          t("error_attach", {
+            reason: errorMessage(caught, t("try_again"), language),
+          }),
         );
       }
     } catch (caught) {
-      setUploadError(errorMessage(caught, "The file upload failed. Please try again."));
+      setUploadError(errorMessage(caught, t("error_upload"), language));
     } finally {
       setUploading(false);
       if (inputRef.current) {
@@ -157,10 +187,8 @@ const StudyMaterials = ({ roadmap }: { roadmap: StudentRoadmap }) => {
       <Card.Header>
         <div className="silkroad:flex silkroad:items-start silkroad:justify-between silkroad:gap-4">
           <div>
-            <Card.Title>Study materials</Card.Title>
-            <Card.Description>
-              Upload notes to build a roadmap, or attach other files as study materials.
-            </Card.Description>
+            <Card.Title>{t("study_materials")}</Card.Title>
+            <Card.Description>{t("study_materials_description")}</Card.Description>
           </div>
           <Button
             variant="outline"
@@ -169,7 +197,7 @@ const StudyMaterials = ({ roadmap }: { roadmap: StudentRoadmap }) => {
             onClick={() => inputRef.current?.click()}
           >
             <IconFileText />
-            {uploading ? "Processing…" : "Upload a file"}
+            {uploading ? t("processing") : t("upload_file")}
           </Button>
         </div>
       </Card.Header>
@@ -188,7 +216,7 @@ const StudyMaterials = ({ roadmap }: { roadmap: StudentRoadmap }) => {
         />
         {roadmap.files.length === 0 ? (
           <p className="silkroad:rounded-lg silkroad:border silkroad:border-dashed silkroad:border-border silkroad:p-5 silkroad:text-center silkroad:text-sm silkroad:text-muted-foreground">
-            No materials yet. Upload a file to keep your study resources in one place.
+            {t("no_materials")}
           </p>
         ) : (
           <ul className="silkroad:flex silkroad:flex-col silkroad:gap-2">
@@ -208,18 +236,14 @@ const StudyMaterials = ({ roadmap }: { roadmap: StudentRoadmap }) => {
                     {file.name}
                   </a>
                   <span className="silkroad:text-xs silkroad:text-muted-foreground">
-                    {fileSizeLabel(file.size)}
+                    {fileSizeLabel(file.size, language)}
                   </span>
                 </span>
               </li>
             ))}
           </ul>
         )}
-        <p className="silkroad:text-xs silkroad:text-muted-foreground">
-          TXT, MD, and CSV notes (up to 30,000 characters) generate a step by step path from their
-          topics. PDF, Office, and image files are saved here as references. Maximum file size: 20
-          MB.
-        </p>
+        <p className="silkroad:text-xs silkroad:text-muted-foreground">{t("upload_help")}</p>
         {uploadError ? (
           <p role="alert" className="silkroad:text-sm silkroad:text-destructive">
             {uploadError}
@@ -231,6 +255,7 @@ const StudyMaterials = ({ roadmap }: { roadmap: StudentRoadmap }) => {
 };
 
 export const IndexPage = () => {
+  const { language, t } = useLanguage();
   const {
     data: subjectsData,
     loading: subjectsLoading,
@@ -256,7 +281,23 @@ export const IndexPage = () => {
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const subjects = subjectsData?.silkRoadLearningSubjects ?? [];
+  const subjects = (subjectsData?.silkRoadLearningSubjects ?? []).map((subject) => {
+    const english = language === "en" ? ENGLISH_LEARNING_CONTENT[subject.id] : undefined;
+    if (!english) {
+      return subject;
+    }
+
+    return {
+      ...subject,
+      name: english.name,
+      description: english.description,
+      gradeRange: english.gradeRange,
+      steps: subject.steps.map((step) => {
+        const englishStep = english.steps[step.id];
+        return englishStep ? { ...step, ...englishStep } : step;
+      }),
+    };
+  });
   const roadmaps = roadmapsData?.silkRoadMyRoadmaps ?? [];
 
   useEffect(() => {
@@ -270,6 +311,18 @@ export const IndexPage = () => {
   const roadmapSteps = selectedRoadmap?.generatedSteps.length
     ? selectedRoadmap.generatedSteps
     : (selectedSubject?.steps ?? []);
+  const displayedRoadmapSteps = roadmapSteps.map((step) =>
+    step.id.startsWith("notes-")
+      ? {
+          ...step,
+          description: t("uploaded_note_description", { title: step.title }),
+          activity: t("uploaded_note_activity", { title: step.title }),
+        }
+      : step,
+  );
+  const progressPercent = roadmapSteps.length
+    ? Math.round(((selectedRoadmap?.completedStepIds.length ?? 0) / roadmapSteps.length) * 100)
+    : 0;
   const isLoading = subjectsLoading || roadmapsLoading;
 
   const handleStart = async (subjectId: string) => {
@@ -279,7 +332,7 @@ export const IndexPage = () => {
       await startRoadmap({ variables: { subjectId } });
       setSelectedSubjectId(subjectId);
     } catch (caught) {
-      setActionError(errorMessage(caught, "Could not open this learning path."));
+      setActionError(errorMessage(caught, t("error_open_path"), language));
     } finally {
       setStartingSubjectId(null);
     }
@@ -293,14 +346,14 @@ export const IndexPage = () => {
         variables: { subjectId, stepId, completed },
       });
     } catch (caught) {
-      setActionError(errorMessage(caught, "Could not save your progress."));
+      setActionError(errorMessage(caught, t("error_save_progress"), language));
     } finally {
       setPendingStepId(null);
     }
   };
 
   return (
-    <div className="silkroad:flex silkroad:h-full silkroad:flex-col">
+    <div className="silkroad:flex silkroad:h-full silkroad:flex-col" lang={language}>
       <div className="sr-topbar silkroad:border-b silkroad:border-border silkroad:px-6 silkroad:py-3">
         <PageTitle />
       </div>
@@ -313,22 +366,38 @@ export const IndexPage = () => {
             />
             <div className="silkroad:relative silkroad:flex silkroad:flex-col silkroad:gap-6 silkroad:md:flex-row silkroad:md:items-end silkroad:md:justify-between">
               <div className="silkroad:max-w-2xl">
-                <span className="sr-eyebrow">✳ &nbsp; YOUR LEARNING JOURNEY</span>
+                <span className="sr-eyebrow">{t("hero_eyebrow")}</span>
                 <h1 className="silkroad:mt-4 silkroad:text-3xl silkroad:font-semibold silkroad:tracking-tight">
-                  Small steps. Big progress.
+                  {t("hero_title")}
                 </h1>
                 <p className="silkroad:mt-3 silkroad:max-w-xl silkroad:text-sm silkroad:leading-relaxed silkroad:text-muted-foreground silkroad:md:text-base">
-                  Pick a subject that feels tough. We’ll break it into clear, manageable steps so
-                  you always know what to try next.
+                  {t("hero_description")}
                 </p>
               </div>
               {selectedRoadmap && selectedSubject ? (
                 <div className="sr-current silkroad:min-w-48 silkroad:rounded-xl silkroad:border silkroad:border-border silkroad:bg-background/80 silkroad:p-4">
-                  <p className="silkroad:text-xs silkroad:text-muted-foreground">CURRENT PATH</p>
+                  <p className="silkroad:text-xs silkroad:text-muted-foreground">
+                    {t("current_path")}
+                  </p>
                   <p className="silkroad:mt-1 silkroad:font-semibold">{selectedSubject.name}</p>
                   <p className="silkroad:mt-2 silkroad:text-sm">
-                    {selectedRoadmap.completedStepIds.length} of {roadmapSteps.length} steps
-                    complete
+                    {t("steps_complete", {
+                      done: selectedRoadmap.completedStepIds.length,
+                      total: roadmapSteps.length,
+                    })}
+                  </p>
+                  <div
+                    className="sr-progress-track"
+                    role="progressbar"
+                    aria-valuenow={progressPercent}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label={t("path_progress", { percent: progressPercent })}
+                  >
+                    <span style={{ width: `${progressPercent}%` }} />
+                  </div>
+                  <p className="sr-progress-caption">
+                    {t("path_progress", { percent: progressPercent })}
                   </p>
                 </div>
               ) : null}
@@ -340,13 +409,15 @@ export const IndexPage = () => {
               role="alert"
               className="silkroad:flex silkroad:items-center silkroad:justify-between silkroad:gap-4 silkroad:rounded-lg silkroad:border silkroad:border-destructive/30 silkroad:p-4 silkroad:text-sm"
             >
-              <span>{subjectsError?.message ?? roadmapsError?.message}</span>
+              <span>
+                {errorMessage(subjectsError ?? roadmapsError, t("error_load_data"), language)}
+              </span>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => void Promise.all([refetchSubjects(), refetchRoadmaps()])}
               >
-                Retry
+                {t("retry")}
               </Button>
             </div>
           )}
@@ -359,13 +430,13 @@ export const IndexPage = () => {
           <section>
             <div className="silkroad:mb-4 silkroad:flex silkroad:flex-wrap silkroad:items-end silkroad:justify-between silkroad:gap-3">
               <div>
-                <h2 className="silkroad:text-xl silkroad:font-semibold">Choose a subject</h2>
+                <h2 className="silkroad:text-xl silkroad:font-semibold">{t("choose_subject")}</h2>
                 <p className="silkroad:mt-1 silkroad:text-sm silkroad:text-muted-foreground">
-                  Your progress and materials are saved separately for each subject.
+                  {t("progress_saved_by_subject")}
                 </p>
               </div>
               <span className="silkroad:text-sm silkroad:text-muted-foreground">
-                {roadmaps.length} {roadmaps.length === 1 ? "path started" : "paths started"}
+                {t("paths_started", { count: roadmaps.length })}
               </span>
             </div>
             {isLoading && !subjectsData ? (
@@ -373,14 +444,14 @@ export const IndexPage = () => {
                 role="status"
                 className="silkroad:py-8 silkroad:text-center silkroad:text-sm silkroad:text-muted-foreground"
               >
-                Loading learning paths…
+                {t("loading_paths")}
               </p>
             ) : subjects.length === 0 ? (
               <p className="silkroad:rounded-lg silkroad:border silkroad:border-dashed silkroad:border-border silkroad:p-6 silkroad:text-sm silkroad:text-muted-foreground">
-                No learning paths are available right now.
+                {t("no_paths")}
               </p>
             ) : (
-                <div className="sr-subject-grid silkroad:grid silkroad:gap-3 silkroad:sm:grid-cols-2 silkroad:lg:grid-cols-3">
+              <div className="sr-subject-grid silkroad:grid silkroad:gap-3 silkroad:sm:grid-cols-2 silkroad:lg:grid-cols-3">
                 {subjects.map((subject) => {
                   const savedRoadmap = roadmaps.find((roadmap) => roadmap.subjectId === subject.id);
                   const selected = subject.id === selectedSubjectId;
@@ -412,7 +483,7 @@ export const IndexPage = () => {
                       <Card.Content className="silkroad:flex silkroad:items-center silkroad:justify-between silkroad:gap-3">
                         <span className="silkroad:flex silkroad:items-center silkroad:gap-1.5 silkroad:text-xs silkroad:text-muted-foreground">
                           <IconClock className="silkroad:size-4" />
-                          About {subject.hours} hours
+                          {t("hours", { count: subject.hours })}
                         </span>
                         <Button
                           size="sm"
@@ -421,10 +492,10 @@ export const IndexPage = () => {
                           onClick={() => void handleStart(subject.id)}
                         >
                           {startingSubjectId === subject.id
-                            ? "Opening…"
+                            ? t("opening")
                             : savedRoadmap
-                              ? "Continue"
-                              : "Start path"}
+                              ? t("continue")
+                              : t("start_path")}
                           <IconArrowRight />
                         </Button>
                       </Card.Content>
@@ -443,22 +514,25 @@ export const IndexPage = () => {
                     <div className="silkroad:flex silkroad:flex-wrap silkroad:gap-2">
                       <Badge variant="info">{selectedSubject.gradeRange}</Badge>
                       {selectedRoadmap.generatedSteps.length > 0 ? (
-                        <Badge variant="secondary">Built from your notes</Badge>
+                        <Badge variant="secondary">{t("generated_notes")}</Badge>
                       ) : null}
                     </div>
                     <h2 className="silkroad:mt-2 silkroad:text-2xl silkroad:font-semibold">
-                      {selectedSubject.name} roadmap
+                      {t("subject_roadmap", { subject: selectedSubject.name })}
                     </h2>
                     <p className="silkroad:mt-1 silkroad:text-sm silkroad:text-muted-foreground">
-                      Follow the steps in order, or revisit any topic whenever you need.
+                      {t("roadmap_guidance")}
                     </p>
                   </div>
                   <span className="silkroad:text-sm silkroad:font-medium">
-                    {selectedRoadmap.completedStepIds.length} / {roadmapSteps.length} complete
+                    {t("steps_complete", {
+                      done: selectedRoadmap.completedStepIds.length,
+                      total: roadmapSteps.length,
+                    })}
                   </span>
                 </div>
                 <ol className="sr-steps silkroad:ml-4 silkroad:flex silkroad:flex-col silkroad:gap-4 silkroad:border-l-2 silkroad:border-border silkroad:pl-6">
-                  {roadmapSteps.map((step, index) => {
+                  {displayedRoadmapSteps.map((step, index) => {
                     const completed = selectedRoadmap.completedStepIds.includes(step.id);
                     return (
                       <li key={step.id} className="silkroad:relative">
@@ -489,8 +563,8 @@ export const IndexPage = () => {
                                 </Card.Description>
                                 <span className="silkroad:mt-2 silkroad:inline-flex silkroad:items-center silkroad:gap-1 silkroad:text-xs silkroad:font-medium silkroad:text-primary">
                                   {expandedStepId === step.id
-                                    ? "Hide lesson details"
-                                    : "Open lesson details"}
+                                    ? t("lesson_details_close")
+                                    : t("lesson_details_open")}
                                   <IconArrowRight
                                     className={`silkroad:size-3 silkroad:transition-transform ${expandedStepId === step.id ? "silkroad:rotate-90" : ""}`}
                                   />
@@ -498,43 +572,44 @@ export const IndexPage = () => {
                               </button>
                               <span className="silkroad:flex silkroad:shrink-0 silkroad:items-center silkroad:gap-1 silkroad:text-xs silkroad:text-muted-foreground">
                                 <IconClock className="silkroad:size-4" />
-                                {step.minutes} min
+                                {t("duration", { minutes: step.minutes })}
                               </span>
                             </div>
                           </Card.Header>
                           <Card.Content className="silkroad:flex silkroad:flex-col silkroad:gap-3">
                             {expandedStepId === step.id ? (
                               <div className="sr-lesson silkroad:rounded-xl silkroad:border silkroad:border-primary/20 silkroad:bg-primary/5 silkroad:p-4">
-                                <h3 className="silkroad:font-semibold">What you’ll learn</h3>
+                                <h3 className="silkroad:font-semibold">{t("what_you_learn")}</h3>
                                 <p className="silkroad:mt-1 silkroad:text-sm silkroad:leading-relaxed silkroad:text-muted-foreground">
-                                  {step.description} You’ll connect this idea to a concrete example
-                                  and explain how it works.
+                                  {step.description} {t("lesson_detail_sentence")}
                                 </p>
                                 <div className="silkroad:mt-4">
                                   <h4 className="silkroad:text-sm silkroad:font-semibold">
-                                    Visualize this topic
+                                    {t("visualize_topic")}
                                   </h4>
                                   <div className="silkroad:mt-2 silkroad:flex silkroad:flex-wrap silkroad:gap-2">
-                                    {simulationLinks(selectedSubject.name, step.title).map(
-                                      (link) => (
-                                        <a
-                                          key={link.label}
-                                          href={link.url}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className="silkroad:inline-flex silkroad:items-center silkroad:gap-1 silkroad:rounded-full silkroad:border silkroad:border-border silkroad:bg-background silkroad:px-3 silkroad:py-1.5 silkroad:text-xs silkroad:font-medium hover:silkroad:border-primary"
-                                        >
-                                          {link.label}
-                                          <IconArrowRight className="silkroad:size-3" />
-                                        </a>
-                                      ),
-                                    )}
+                                    {simulationLinks(
+                                      selectedSubject.name,
+                                      step.title,
+                                      language,
+                                    ).map((link) => (
+                                      <a
+                                        key={link.label}
+                                        href={link.url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="silkroad:inline-flex silkroad:items-center silkroad:gap-1 silkroad:rounded-full silkroad:border silkroad:border-border silkroad:bg-background silkroad:px-3 silkroad:py-1.5 silkroad:text-xs silkroad:font-medium hover:silkroad:border-primary"
+                                      >
+                                        {link.label}
+                                        <IconArrowRight className="silkroad:size-3" />
+                                      </a>
+                                    ))}
                                   </div>
                                 </div>
                               </div>
                             ) : null}
                             <p className="silkroad:rounded-lg silkroad:bg-muted silkroad:p-3 silkroad:text-sm">
-                              <span className="silkroad:font-medium">Try this: </span>
+                              <span className="silkroad:font-medium">{t("try_this")}</span>
                               {step.activity}
                             </p>
                             <div>
@@ -547,10 +622,10 @@ export const IndexPage = () => {
                                 }
                               >
                                 {pendingStepId === step.id
-                                  ? "Saving…"
+                                  ? t("saving")
                                   : completed
-                                    ? "Completed"
-                                    : "Mark complete"}
+                                    ? t("completed")
+                                    : t("mark_complete")}
                               </Button>
                             </div>
                           </Card.Content>
@@ -562,10 +637,10 @@ export const IndexPage = () => {
                 {selectedRoadmap.pathHistory.length > 0 ? (
                   <section className="silkroad:mt-8 silkroad:rounded-2xl silkroad:border silkroad:border-border silkroad:bg-muted/30 silkroad:p-5">
                     <h3 className="silkroad:text-lg silkroad:font-semibold">
-                      Previous path versions
+                      {t("previous_versions")}
                     </h3>
                     <p className="silkroad:mt-1 silkroad:text-sm silkroad:text-muted-foreground">
-                      When new notes create an updated roadmap, your earlier steps stay saved here.
+                      {t("history_description")}
                     </p>
                     <div className="sr-history silkroad:mt-4 silkroad:flex silkroad:flex-col silkroad:gap-3">
                       {selectedRoadmap.pathHistory.map((version) => (
@@ -579,10 +654,14 @@ export const IndexPage = () => {
                           }}
                         >
                           <summary className="silkroad:cursor-pointer silkroad:p-4 silkroad:text-sm silkroad:font-medium">
-                            {version.sourceFileName} ·{" "}
-                            {new Date(version.savedAt).toLocaleDateString()} ·{" "}
-                            {version.completedStepIds.length}/{version.generatedSteps.length} steps
-                            complete
+                            {t("history_summary", {
+                              file: version.sourceFileName,
+                              date: new Date(version.savedAt).toLocaleDateString(
+                                language === "mn" ? "mn-MN" : "en-US",
+                              ),
+                              done: version.completedStepIds.length,
+                              total: version.generatedSteps.length,
+                            })}
                           </summary>
                           <ol className="silkroad:space-y-2 silkroad:border-t silkroad:border-border silkroad:p-4">
                             {version.generatedSteps.map((oldStep, oldIndex) => (
@@ -596,7 +675,9 @@ export const IndexPage = () => {
                                 <span>
                                   <strong>{oldStep.title}</strong>
                                   <span className="silkroad:mt-0.5 silkroad:block silkroad:text-muted-foreground">
-                                    {oldStep.description}
+                                    {oldStep.id.startsWith("notes-")
+                                      ? t("uploaded_note_description", { title: oldStep.title })
+                                      : oldStep.description}
                                   </span>
                                 </span>
                               </li>
@@ -614,7 +695,7 @@ export const IndexPage = () => {
             </div>
           ) : !isLoading && subjects.length > 0 ? (
             <p className="silkroad:rounded-xl silkroad:border silkroad:border-dashed silkroad:border-border silkroad:p-6 silkroad:text-center silkroad:text-sm silkroad:text-muted-foreground">
-              Choose a subject above to start your first learning path.
+              {t("choose_subject_prompt")}
             </p>
           ) : null}
         </main>

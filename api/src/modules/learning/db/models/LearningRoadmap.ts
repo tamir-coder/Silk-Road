@@ -78,7 +78,7 @@ export const loadLearningRoadmapClass = (models: IModels) => {
       return models.LearningRoadmaps.findOne({ userId, subjectId }).then((existing) => {
         const historyEntry = existing?.generatedSteps.length
           ? {
-              sourceFileName: existing.files.at(-1)?.name ?? "Earlier study notes",
+              sourceFileName: existing.files.at(-1)?.name ?? "Өмнөх сурах тэмдэглэл",
               savedAt: existing.updatedAt,
               completedStepIds: existing.completedStepIds,
               generatedSteps: existing.generatedSteps,

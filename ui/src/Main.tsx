@@ -3,6 +3,7 @@ import { lazy, Suspense } from "react";
 import { Route, Routes } from "react-router";
 import { AppLayout } from "erxes-ui";
 import manifest from "../../erxes.json" with { type: "json" };
+import { LanguageProvider, useLanguage } from "./i18n";
 import { Navigation } from "./modules/Navigation";
 
 const IndexPage = lazy(() =>
@@ -16,13 +17,23 @@ const SettingsPage = lazy(() =>
 
 // core-ui mounts this component at `/<path>/*`; routes below are relative to
 // it. It resolves the component by the PascalCase expose name.
+const SilkRoadApp = () => {
+  const { t } = useLanguage();
+
+  return (
+    <AppLayout id={manifest.name} title={manifest.title} sidebar={<Navigation />}>
+      <Suspense fallback={<div role="status">{t("loading")}</div>}>
+        <Routes>
+          <Route index element={<IndexPage />} />
+          <Route path="settings" element={<SettingsPage />} />
+        </Routes>
+      </Suspense>
+    </AppLayout>
+  );
+};
+
 export const SilkRoad = () => (
-  <AppLayout id={manifest.name} title={manifest.title} sidebar={<Navigation />}>
-    <Suspense fallback={<div role="status">Loading…</div>}>
-      <Routes>
-        <Route index element={<IndexPage />} />
-        <Route path="settings" element={<SettingsPage />} />
-      </Routes>
-    </Suspense>
-  </AppLayout>
+  <LanguageProvider>
+    <SilkRoadApp />
+  </LanguageProvider>
 );

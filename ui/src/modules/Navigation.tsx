@@ -4,22 +4,27 @@ import { IconSandbox, IconSettings } from "@tabler/icons-react";
 // private copy instead of reusing the host's.
 import { NavigationMenuLinkItem, Sidebar } from "erxes-ui";
 import manifest from "../../../erxes.json" with { type: "json" };
+import { useLanguage } from "../i18n";
 
-export const Navigation = () => (
-  <Sidebar.Group>
-    <Sidebar.GroupContent>
-      <Sidebar.Menu>
-        <NavigationMenuLinkItem
-          name={manifest.title}
-          icon={IconSandbox}
-          path={`/${manifest.ui.path}`}
-        />
-        <NavigationMenuLinkItem
-          name="Settings"
-          icon={IconSettings}
-          path={`/${manifest.ui.path}/settings`}
-        />
-      </Sidebar.Menu>
-    </Sidebar.GroupContent>
-  </Sidebar.Group>
-);
+export const Navigation = () => {
+  const { t } = useLanguage();
+
+  return (
+    <Sidebar.Group>
+      <Sidebar.GroupContent>
+        <Sidebar.Menu>
+          <NavigationMenuLinkItem
+            name={manifest.title}
+            icon={IconSandbox}
+            path={`/${manifest.ui.path}`}
+          />
+          <NavigationMenuLinkItem
+            name={t("settings")}
+            icon={IconSettings}
+            path={`/${manifest.ui.path}/settings`}
+          />
+        </Sidebar.Menu>
+      </Sidebar.GroupContent>
+    </Sidebar.Group>
+  );
+};

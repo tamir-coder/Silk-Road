@@ -9,20 +9,20 @@ export const permissions: IPermissionConfig = {
   modules: [
     {
       name: "silkRoadRoadmaps",
-      description: `${manifest.title} student learning roadmaps`,
+      description: `${manifest.title} сурагчдын суралцах замнал`,
       scopeField: "userId",
       ownerFields: ["userId"],
-      scopes: [{ name: "own", description: "The signed-in student's own roadmaps" }],
+      scopes: [{ name: "own", description: "Нэвтэрсэн сурагчийн өөрийн суралцах замнал" }],
       actions: [
         {
           name: ROADMAP_READ,
-          title: "Read learning roadmaps",
-          description: "View the signed-in student's learning paths and study materials",
+          title: "Суралцах замнал унших",
+          description: "Нэвтэрсэн сурагчийн замнал болон сурах материалыг харах",
         },
         {
           name: ROADMAP_WRITE,
-          title: "Update learning roadmaps",
-          description: "Choose subjects, track progress, and attach study materials",
+          title: "Суралцах замнал шинэчлэх",
+          description: "Хичээл сонгох, явцаа хянах, сурах материал хавсаргах",
         },
       ],
     },

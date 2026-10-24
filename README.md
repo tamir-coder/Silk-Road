@@ -1,18 +1,57 @@
-# Silk Road
+# Silkroad
 
-Learning roadmaps for Mongolian students
+**Анги, хичээл бүрд зориулсан суралцах зам — ганц товшилтоор.**
+
+## Асуудал
+
+Монголын сурагчдад сурах бичгийн овоолго, үзэх сэдвийн жагсаалт өгдөг ч хамгийн
+энгийн асуулт болох “Одоо би юу сурах вэ?” гэдэгт тодорхой хариулт байдаггүй.
+Сайн сурдаг сурагчид мэдлэгээ хэрхэн гүнзгийрүүлэхээ мэдэхгүй, харин суралцахад
+бэрхшээлтэй сурагчид хаанаас эхлэхээ олдоггүй. Одоо байгаа суралцах замын
+хэрэгслүүд хөгжүүлэгчдэд зориулагдсан, англи хэл дээр, бас хэт төвөгтэй тул
+9-р ангийн сурагч эхний алхмаа хийхээсээ өмнө шантрах нь бий.
+
+## Бидний шийдэл
+
+Silkroad бол сурагч бүрд сургуулийнхаа хичээлийг алхам алхмаар судлах энгийн
+замнал гаргаж өгдөг erxes-ийн жижиг нэмэлт юм.
+
+Хичээл, суралцах чиглэлээ сонгоод тодорхой нэг замаар урагшилна. Замнал нь нэг
+шугаман дараалалтай: дуусгасан, одоо үзэж буй, дараа үзэх алхам. Зөвхөн одоогийн
+алхам тодорч, юу сурахыг нэг энгийн өгүүлбэрээр тайлбарлана. Үргэлжлүүлэхэд ганц
+товч байхад л хангалттай.
+
+Явцаа хяна. Нэг алхмыг дуусгахад дараагийнх нь нээгдэж, ахицын зурвас дүүрнэ.
+
+## Яагаад чухал вэ?
+
+- Хэт их мэт санагдах сургалтын хөтөлбөрийг сурагч өнөөдөр хийж дуусгаж болох
+  цөөн, жижиг алхам болгон хуваана.
+- Олимпиад, элсэлтийн шалгалтад илүү гүнзгий бэлдэх хүсэлтэй сурагчдад туслахын
+  зэрэгцээ бусдыг энэ чиглэлд хүчлэхгүй.
+- Жижиг, нээлттэй эхтэй тул сургууль бүр өөрийн хичээл, ангиа нэмж чадна.
+
+## Өнөөдөр бүтээсэн зүйл
+
+Нэг анги, зарим хичээлийг хамарсан, явц хянах боломжтой замнал бүтээсэн. Мөн
+сургуулийн хөтөлбөр болон олимпиадын чиглэлийн хооронд шилжих боломжтой. Шинэ
+хичээл, анги нэмэхэд код шинээр бичихгүй, зөвхөн агуулга нэмэхэд хангалттай.
+
+Сурагчид хичээл бүрдээ сурах материалын файл хавсаргаж болно. `.txt`, `.md`, эсвэл
+`.csv` тэмдэглэл (30,000 хүртэл тэмдэгт)-ээ оруулахад тухайн сэдвүүдээс нь
+суралцах алхмуудын хувийн дараалал үүсгэнэ. Дэмждэг бусад файлыг лавлах материал
+болгон хавсаргана.
+
+## Цаашдын боломж
+
+Алхам бүрийн төгсгөлд богино сорил, багшийн хянах самбар, эцэг эхэд зориулсан
+явцын харагдац нэмж болно. Эдгээрийг erxes Marketplace-ээр дамжуулан сургууль,
+сургалтын төвүүд ашиглах боломжтой.
 
 An erxes plugin that lives outside the erxes monorepo and joins an erxes stack.
-The shared-library baseline is erxes 3.3.2. Dashed plugin names
-use the same public permission identity in the API and UI; the host must support
-normalized remote discovery and dashed page-module loading (see integration docs).
-
-Students can choose a subject, follow a visual step-by-step learning path, mark
-steps complete, and attach study files to each subject. Uploading a `.txt`,
-`.md`, or `.csv` note (up to 30,000 characters) builds a personalized sequence
-of roadmap steps from its topics. Other supported uploads remain attached as
-study references. The initial catalog contains curated Mathematics, English,
-Physics, Chemistry, Biology, and Mongolian-language paths.
+The shared-library baseline is erxes 3.3.2. Dashed plugin names use the same
+public permission identity in the API and UI; the host must support normalized
+remote discovery and dashed page-module loading (see integration docs).
 
 | Part   | Path         | Stack                                                                              | Dev port |
 | ------ | ------------ | ---------------------------------------------------------------------------------- | -------- |
@@ -89,5 +128,7 @@ but this version does not extract their contents.
 
 See [docs/erxes-integration.md](docs/erxes-integration.md) for how the plugin
 plugs into erxes and [AGENTS.md](AGENTS.md) for the rules to keep it working.
+
 # Silk-Road
+
 # Silk-Road
